@@ -96,21 +96,31 @@ impl<T: Stream> FusedStream for Timeout<T> {
 mod test {
     use std::time::Duration;
 
+    use futures::{StreamExt, TryStreamExt};
+
     use crate::TimeoutExt;
 
-    #[tokio::test]
-    async fn fut_timeout() {
-        tokio::time::sleep(Duration::from_secs(15))
-            .timeout(Duration::from_secs(10))
-            .await
-            .expect_err("error");
+    #[test]
+    fn fut_timeout() {
+        futures::executor::block_on(
+            futures_timer::Delay::new(Duration::from_secs(10)).timeout(Duration::from_secs(5)),
+        )
+        .expect_err("timeout after timer elapsed");
     }
 
-    #[tokio::test]
-    async fn stream_timeout() {
-        tokio::time::sleep(Duration::from_secs(5))
-            .timeout(Duration::from_secs(10))
-            .await
-            .expect("error")
+    #[test]
+    fn stream_timeout() {
+        futures::executor::block_on(async move {
+            let mut st = futures::stream::once(async move {
+                futures_timer::Delay::new(Duration::from_secs(10)).await;
+                0
+            })
+            .timeout(Duration::from_secs(5))
+            .boxed();
+
+            st.try_next()
+                .await
+                .expect_err("timeout after timer elapsed");
+        });
     }
 }
