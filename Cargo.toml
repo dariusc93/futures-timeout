@@ -1,0 +1,22 @@
+[package]
+name = "futures-timeout"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/dariusc93/futures-timeout"
+authors = ["Darius Clark"]
+exclude = [".gitignore"]
+
+[dependencies]
+futures = { version = "0.3" }
+pin-project = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+futures-timer = { version = "3.0", features = ["wasm-bindgen"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+futures-timer = "3.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+tokio = { version = "1", features = ["full"] }
