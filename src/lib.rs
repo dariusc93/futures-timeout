@@ -38,15 +38,19 @@ impl<T: Future> Future for Timeout<T> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        if let Some(timer) = this.timer.as_mut() {
-            if timer.poll_unpin(cx).is_ready() {
-                return Poll::Ready(Err(io::ErrorKind::TimedOut.into()));
-            }
+
+        let Some(timer) = this.timer.as_mut() else {
+            return Poll::Ready(Err(io::ErrorKind::TimedOut.into()));
+        };
+
+        match this.inner.poll(cx) {
+            Poll::Ready(value) => return Poll::Ready(Ok(value)),
+            Poll::Pending => {}
         }
 
-        let item = futures::ready!(this.inner.poll(cx).map(Ok));
+        futures::ready!(timer.poll_unpin(cx));
         this.timer.take();
-        Poll::Ready(item)
+        return Poll::Ready(Err(io::ErrorKind::TimedOut.into()))
     }
 }
 
@@ -61,24 +65,26 @@ impl<T: Stream> Stream for Timeout<T> {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        if let Some(timer) = this.timer.as_mut() {
-            if timer.poll_unpin(cx).is_ready() {
-                return Poll::Ready(Some(Err(io::ErrorKind::TimedOut.into())));
+
+        let Some(timer) = this.timer.as_mut() else {
+            return Poll::Ready(None);
+        };
+
+        match this.inner.poll_next(cx) {
+            Poll::Ready(Some(value)) => {
+                timer.reset(*this.duration);
+                return Poll::Ready(Some(Ok(value)));
             }
+            Poll::Ready(None) => {
+                this.timer.take();
+                return Poll::Ready(None);
+            }
+            Poll::Pending => {}
         }
 
-        match futures::ready!(this.inner.poll_next(cx)) {
-            Some(item) => {
-                if let Some(timer) = this.timer.as_mut() {
-                    timer.reset(*this.duration);
-                }
-                Poll::Ready(Some(Ok(item)))
-            }
-            None => {
-                this.timer.take();
-                Poll::Ready(None)
-            }
-        }
+        futures::ready!(timer.poll_unpin(cx));
+        this.timer.take();
+        return Poll::Ready(Some(Err(io::ErrorKind::TimedOut.into())));
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
