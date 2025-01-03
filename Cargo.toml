@@ -1,6 +1,6 @@
 [package]
 name = "futures-timeout"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 description = """
@@ -12,11 +12,14 @@ authors = ["Darius Clark"]
 exclude = [".gitignore"]
 
 [dependencies]
-futures = { version = "0.3" }
-pin-project = "1"
+futures = { version = "0.3.31", default-features = false, features = ["std", "alloc", "async-await"] }
+pin-project = "1.1.7"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-futures-timer = { version = "3.0", features = ["wasm-bindgen"] }
+futures-timer = { version = "3.0.3", features = ["wasm-bindgen"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-futures-timer = "3.0"
+futures-timer = "3.0.3"
+
+[dev-dependencies]
+futures = { version = "0.3.31", default-features = false, features = ["std", "alloc", "async-await", "executor"] }
