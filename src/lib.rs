@@ -1,4 +1,5 @@
 use std::io;
+use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -33,6 +34,19 @@ pub struct Timeout<T> {
     duration: Duration,
 }
 
+impl<T> Deref for Timeout<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T> DerefMut for Timeout<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
 impl<T: Future> Future for Timeout<T> {
     type Output = io::Result<T::Output>;
 
@@ -50,7 +64,7 @@ impl<T: Future> Future for Timeout<T> {
 
         futures::ready!(timer.poll_unpin(cx));
         this.timer.take();
-        return Poll::Ready(Err(io::ErrorKind::TimedOut.into()))
+        Poll::Ready(Err(io::ErrorKind::TimedOut.into()))
     }
 }
 
@@ -84,7 +98,7 @@ impl<T: Stream> Stream for Timeout<T> {
 
         futures::ready!(timer.poll_unpin(cx));
         this.timer.take();
-        return Poll::Ready(Some(Err(io::ErrorKind::TimedOut.into())));
+        Poll::Ready(Some(Err(io::ErrorKind::TimedOut.into())))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
