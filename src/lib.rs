@@ -34,6 +34,13 @@ pub struct Timeout<T> {
     duration: Duration,
 }
 
+impl<T> Timeout<T> {
+    /// Consumes Timeout and returns the inner value
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
+}
+
 impl<T> Deref for Timeout<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
