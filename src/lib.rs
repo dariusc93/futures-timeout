@@ -4,11 +4,11 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::future::FusedFuture;
-use futures::stream::FusedStream;
-use futures::{Future, FutureExt, Stream};
+use futures_core::future::FusedFuture;
+use futures_core::stream::FusedStream;
+use futures_lite::{Future, FutureExt, Stream};
 use futures_timer::Delay;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 
 pub trait TimeoutExt: Sized {
     /// Requires a [`Future`] or [`Stream`] to complete before the specific duration has elapsed.
@@ -25,13 +25,14 @@ pub trait TimeoutExt: Sized {
 
 impl<T: Sized> TimeoutExt for T {}
 
-#[derive(Debug)]
-#[pin_project]
-pub struct Timeout<T> {
-    #[pin]
-    inner: T,
-    timer: Option<Delay>,
-    duration: Duration,
+pin_project! {
+    #[derive(Debug)]
+    pub struct Timeout<T> {
+        #[pin]
+        inner: T,
+        timer: Option<Delay>,
+        duration: Duration,
+    }
 }
 
 impl<T> Timeout<T> {
@@ -69,7 +70,7 @@ impl<T: Future> Future for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(timer.poll_unpin(cx));
+        futures_lite::ready!(timer.poll(cx));
         this.timer.take();
         Poll::Ready(Err(io::ErrorKind::TimedOut.into()))
     }
@@ -103,7 +104,7 @@ impl<T: Stream> Stream for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(timer.poll_unpin(cx));
+        futures_lite::ready!(timer.poll(cx));
         this.timer.take();
         Poll::Ready(Some(Err(io::ErrorKind::TimedOut.into())))
     }
