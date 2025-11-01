@@ -8,7 +8,7 @@ use futures::future::FusedFuture;
 use futures::stream::FusedStream;
 use futures::{Future, FutureExt, Stream};
 use futures_timer::Delay;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 
 pub trait TimeoutExt: Sized {
     /// Requires a [`Future`] or [`Stream`] to complete before the specific duration has elapsed.
@@ -25,13 +25,14 @@ pub trait TimeoutExt: Sized {
 
 impl<T: Sized> TimeoutExt for T {}
 
-#[derive(Debug)]
-#[pin_project]
-pub struct Timeout<T> {
-    #[pin]
-    inner: T,
-    timer: Option<Delay>,
-    duration: Duration,
+pin_project! {
+    #[derive(Debug)]
+    pub struct Timeout<T> {
+        #[pin]
+        inner: T,
+        timer: Option<Delay>,
+        duration: Duration,
+    }
 }
 
 impl<T> Timeout<T> {
