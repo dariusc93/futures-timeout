@@ -4,9 +4,9 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::future::FusedFuture;
-use futures::stream::FusedStream;
-use futures::{Future, FutureExt, Stream};
+use futures_core::future::FusedFuture;
+use futures_core::stream::FusedStream;
+use futures_lite::{Future, FutureExt, Stream};
 use futures_timer::Delay;
 use pin_project_lite::pin_project;
 
@@ -70,7 +70,7 @@ impl<T: Future> Future for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(timer.poll_unpin(cx));
+        futures_lite::ready!(timer.poll(cx));
         this.timer.take();
         Poll::Ready(Err(io::ErrorKind::TimedOut.into()))
     }
@@ -104,7 +104,7 @@ impl<T: Stream> Stream for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(timer.poll_unpin(cx));
+        futures_lite::ready!(timer.poll(cx));
         this.timer.take();
         Poll::Ready(Some(Err(io::ErrorKind::TimedOut.into())))
     }
