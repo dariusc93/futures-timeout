@@ -1,12 +1,11 @@
-use std::io;
-use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use core::ops::{Deref, DerefMut};
+use core::pin::Pin;
+use core::task::{Context, Poll};
+use core::time::Duration;
 
 use futures::future::FusedFuture;
 use futures::stream::FusedStream;
-use futures::{Future, FutureExt, Stream};
+use futures::{Future, Stream};
 use futures_timer::Delay;
 use pin_project::pin_project;
 
@@ -24,6 +23,16 @@ pub trait TimeoutExt: Sized {
 }
 
 impl<T: Sized> TimeoutExt for T {}
+
+#[derive(Debug)]
+pub struct TimeoutError;
+impl core::fmt::Display for TimeoutError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Operation timed out")
+    }
+}
+
+impl core::error::Error for TimeoutError {}
 
 #[derive(Debug)]
 #[pin_project]
@@ -55,13 +64,13 @@ impl<T> DerefMut for Timeout<T> {
 }
 
 impl<T: Future> Future for Timeout<T> {
-    type Output = io::Result<T::Output>;
+    type Output = Result<T::Output, TimeoutError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
 
         let Some(timer) = this.timer.as_mut() else {
-            return Poll::Ready(Err(io::ErrorKind::TimedOut.into()));
+            return Poll::Ready(Err(TimeoutError));
         };
 
         match this.inner.poll(cx) {
@@ -69,9 +78,9 @@ impl<T: Future> Future for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(timer.poll_unpin(cx));
+        futures::ready!(Pin::new(timer).poll(cx));
         this.timer.take();
-        Poll::Ready(Err(io::ErrorKind::TimedOut.into()))
+        Poll::Ready(Err(TimeoutError))
     }
 }
 
@@ -82,7 +91,7 @@ impl<T: Future> FusedFuture for Timeout<T> {
 }
 
 impl<T: Stream> Stream for Timeout<T> {
-    type Item = io::Result<T::Item>;
+    type Item = Result<T::Item, TimeoutError>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
@@ -103,9 +112,9 @@ impl<T: Stream> Stream for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(timer.poll_unpin(cx));
+        futures::ready!(Pin::new(timer).poll(cx));
         this.timer.take();
-        Poll::Ready(Some(Err(io::ErrorKind::TimedOut.into())))
+        Poll::Ready(Some(Err(TimeoutError)))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -121,7 +130,7 @@ impl<T: Stream> FusedStream for Timeout<T> {
 
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
+    use core::time::Duration;
 
     use futures::{StreamExt, TryStreamExt};
 

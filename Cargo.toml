@@ -2,7 +2,7 @@
 name = "futures-timeout"
 version = "0.1.3"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.81"
 description = """
 A utility that provides timeouts for futures and streams
 """
@@ -11,8 +11,11 @@ repository = "https://github.com/dariusc93/futures-timeout"
 authors = ["Darius Clark"]
 exclude = [".gitignore"]
 
+[features]
+default = []
+
 [dependencies]
-futures = { version = "0.3.31", default-features = false, features = ["std", "alloc", "async-await"] }
+futures = { version = "0.3.31", default-features = false, features = ["std", "async-await"] }
 pin-project = "1.1.10"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
