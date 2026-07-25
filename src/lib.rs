@@ -74,7 +74,10 @@ impl<T: Future> Future for Timeout<T> {
         };
 
         match this.inner.poll(cx) {
-            Poll::Ready(value) => return Poll::Ready(Ok(value)),
+            Poll::Ready(value) => {
+                this.timer.take();
+                return Poll::Ready(Ok(value))
+            },
             Poll::Pending => {}
         }
 
