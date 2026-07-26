@@ -56,6 +56,16 @@ pub struct Timeout<T> {
 }
 
 impl<T> Timeout<T> {
+
+    /// Create a timeout for Stream or Future.
+    pub fn new(inner: T, duration: Duration) -> Self {
+        Timeout {
+            inner,
+            timer: Some(Delay::new(duration)),
+            duration,
+        }
+    }
+
     /// Create a timeout from a stream
     pub fn from_stream(inner: T, duration: Duration) -> Self
     where
