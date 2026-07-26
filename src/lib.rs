@@ -3,14 +3,14 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 use core::time::Duration;
 
-use futures::future::FusedFuture;
-use futures::stream::FusedStream;
-use futures::{Future, Stream};
+use futures_core::future::FusedFuture;
+use futures_core::stream::FusedStream;
+use futures_core::{Future, Stream};
 use futures_timer::Delay;
 use pin_project::pin_project;
 
-pub trait TimeoutExt: Sized {
-    /// Requires a [`Future`] or [`Stream`] to complete before the specific duration has elapsed.
+pub trait TimeoutStreamExt: Stream + Sized {
+    /// Requires a [`Stream`] to complete before the specific duration has elapsed.
     ///
     /// **Note: If a [`Stream`] returns an item, the timer will reset until `Poll::Ready(None)` is returned**
     fn timeout(self, duration: Duration) -> Timeout<Self> {
@@ -22,7 +22,19 @@ pub trait TimeoutExt: Sized {
     }
 }
 
-impl<T: Sized> TimeoutExt for T {}
+pub trait TimeoutFutureExt: Future + Sized {
+    /// Requires a [`Future`] to complete before the specific duration has elapsed.
+    fn timeout(self, duration: Duration) -> Timeout<Self> {
+        Timeout {
+            inner: self,
+            timer: Some(Delay::new(duration)),
+            duration,
+        }
+    }
+}
+
+impl<T> TimeoutFutureExt for T where T: Future {}
+impl<T> TimeoutStreamExt for T where T: Stream {}
 
 #[derive(Debug)]
 pub struct TimeoutError;
@@ -44,6 +56,30 @@ pub struct Timeout<T> {
 }
 
 impl<T> Timeout<T> {
+    /// Create a timeout from a stream
+    pub fn from_stream(inner: T, duration: Duration) -> Self
+    where
+        T: Stream,
+    {
+        Timeout {
+            inner,
+            timer: Some(Delay::new(duration)),
+            duration,
+        }
+    }
+
+    /// Create a timeout from a future
+    pub fn from_future(inner: T, duration: Duration) -> Self
+    where
+        T: Future,
+    {
+        Timeout {
+            inner,
+            timer: Some(Delay::new(duration)),
+            duration,
+        }
+    }
+
     /// Consumes Timeout and returns the inner value
     pub fn into_inner(self) -> T {
         self.inner
@@ -81,7 +117,7 @@ impl<T: Future> Future for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(Pin::new(timer).poll(cx));
+        core::task::ready!(Pin::new(timer).poll(cx));
         this.timer.take();
         Poll::Ready(Err(TimeoutError))
     }
@@ -115,7 +151,7 @@ impl<T: Stream> Stream for Timeout<T> {
             Poll::Pending => {}
         }
 
-        futures::ready!(Pin::new(timer).poll(cx));
+        core::task::ready!(Pin::new(timer).poll(cx));
         this.timer.take();
         Poll::Ready(Some(Err(TimeoutError)))
     }
@@ -137,10 +173,9 @@ mod test {
 
     use futures::{StreamExt, TryStreamExt};
 
-    use crate::TimeoutExt;
-
     #[test]
     fn fut_timeout() {
+        use crate::TimeoutFutureExt;
         futures::executor::block_on(
             futures_timer::Delay::new(Duration::from_secs(10)).timeout(Duration::from_secs(5)),
         )
@@ -149,6 +184,7 @@ mod test {
 
     #[test]
     fn stream_timeout() {
+        use crate::TimeoutStreamExt;
         futures::executor::block_on(async move {
             let mut st = futures::stream::once(async move {
                 futures_timer::Delay::new(Duration::from_secs(10)).await;

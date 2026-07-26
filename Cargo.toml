@@ -15,13 +15,13 @@ exclude = [".gitignore"]
 default = []
 
 [dependencies]
-futures = { version = "0.3.31", default-features = false, features = ["std", "async-await"] }
+futures-core = { version = "0.3.31", default-features = false }
 pin-project = "1.1.10"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 futures-timer = { version = "3.0.3", features = ["wasm-bindgen"] }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
 futures-timer = "3.0.3"
 
 [dev-dependencies]
